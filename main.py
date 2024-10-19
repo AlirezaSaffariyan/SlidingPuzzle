@@ -67,6 +67,78 @@ class PuzzleAlgorithms:
 
         return None  # If no solution is found
 
+    def bidirectional(self):
+        # Goal State
+        goal_state = list(range(1, self.size**2)) + [None]
+
+        # Initial state
+        initial_state = [tile for row in self.tiles for tile in row]
+        initial_empty_tile = self.get_empty_tile_coordinates(initial_state)
+
+        # Initialize BFS for forward and backward search
+        queue_start = deque([(initial_state, [initial_empty_tile])])  # (state, path)
+        queue_goal = deque([(goal_state, [(2, 2)])])  # (goal state, empty path)
+
+        visited_start = {tuple(initial_state): []}
+        visited_goal = {tuple(goal_state): []}
+
+        while queue_start and queue_goal:
+            # Expand from the start
+            current_state_start, path_start = queue_start.popleft()
+            empty_start = self.get_empty_tile_coordinates(current_state_start)
+
+            # Check for a solution
+            if tuple(current_state_start) in visited_goal:
+                # Merge paths
+                path_goal = visited_goal[tuple(current_state_start)]
+                return (
+                    path_start + path_goal[::-1]
+                )  # Complete path from forward and backward
+
+            # Explore possible moves
+            for move in self.can_move_to(empty_start):
+                new_state_start = current_state_start[:]
+                new_state_start = self.move_to(new_state_start, move)
+                new_empty_tile_start = self.get_empty_tile_coordinates(new_state_start)
+                new_state_tuple_start = tuple(new_state_start)
+
+                if new_state_tuple_start not in visited_start:
+                    visited_start[new_state_tuple_start] = path_start + [
+                        new_empty_tile_start
+                    ]
+                    queue_start.append(
+                        (new_state_start, visited_start[new_state_tuple_start])
+                    )
+
+            # Expand from the goal
+            current_state_goal, path_goal = queue_goal.popleft()
+            empty_goal = self.get_empty_tile_coordinates(current_state_goal)
+
+            # Check for a solution
+            if tuple(current_state_goal) in visited_start:
+                # Merge paths
+                path_start = visited_start[tuple(current_state_goal)]
+                return (
+                    path_goal[::-1] + path_start
+                )  # Complete path from backward and forward
+
+            # Explore possible moves backwards
+            for move in self.can_move_to(empty_goal):
+                new_state_goal = current_state_goal[:]
+                self.move_to(new_state_goal, move)
+                new_empty_tile_goal = self.get_empty_tile_coordinates(new_state_goal)
+                new_state_tuple_goal = tuple(new_state_goal)
+
+                if new_state_tuple_goal not in visited_goal:
+                    visited_goal[new_state_tuple_goal] = path_goal + [
+                        new_empty_tile_goal
+                    ]
+                    queue_goal.append(
+                        (new_state_goal, visited_goal[new_state_tuple_goal])
+                    )
+
+        return None  # If no solution is found
+
     def get_empty_tile_coordinates(self, state: list):
         empty_i = state.index(None)
         y = empty_i // self.size
