@@ -1,20 +1,21 @@
+import heapq
+import random
 import sys
 from collections import deque
-import random
-from time import sleep
+
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication,
-    QWidget,
-    QGridLayout,
-    QPushButton,
-    QMessageBox,
-    QVBoxLayout,
     QComboBox,
+    QGridLayout,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import QTimer
 
-ALGORITHMS = ["Select an algorithm", "BFS", "Bidirectional"]
+ALGORITHMS = ["Select an algorithm", "BFS", "Bidirectional", "A*"]
 
 
 class CustomMessageBox(QMessageBox):
@@ -37,11 +38,9 @@ class PuzzleAlgorithms:
         self.empty_tile = empty_tile
 
     def bfs(self):
-        # Flatten the tiles to create an initial state
         initial_state = [tile for row in self.tiles for tile in row]
         initial_empty_tile = self.get_empty_tile_coordinates(initial_state)
 
-        # Queue for BFS
         queue = deque([(initial_state, [])])
         visited = set()
         visited.add(tuple(initial_state))
@@ -50,10 +49,9 @@ class PuzzleAlgorithms:
             current_state, path = queue.popleft()
             empty_y, empty_x = self.get_empty_tile_coordinates(current_state)
 
-            if self.bullshit_check_win(current_state):
+            if self.is_solved(current_state):
                 return path
 
-            # Explore possible moves
             for move in self.can_move_to((empty_y, empty_x)):
                 new_state = current_state[:]
                 self.move_to(new_state, move)
@@ -68,84 +66,121 @@ class PuzzleAlgorithms:
         return None  # If no solution is found
 
     def bidirectional(self):
-        # Goal State
+        # Flatten the initial state and generate goal state
+        initial_state = [tile for row in self.tiles for tile in row]
         goal_state = list(range(1, self.size**2)) + [None]
 
-        # Initial state
-        initial_state = [tile for row in self.tiles for tile in row]
-        initial_empty_tile = self.get_empty_tile_coordinates(initial_state)
+        start_empty = self.get_empty_tile_coordinates(initial_state)
 
-        # Initialize BFS for forward and backward search
-        queue_start = deque([(initial_state, [initial_empty_tile])])  # (state, path)
-        queue_goal = deque([(goal_state, [(2, 2)])])  # (goal state, empty path)
+        # Initialize queues for forward and backward search
+        forward_queue = deque([(initial_state, [start_empty])])
+        backward_queue = deque([(goal_state, [(2, 2)])])
 
-        visited_start = {tuple(initial_state): []}
-        visited_goal = {tuple(goal_state): []}
+        forward_visited = {tuple(initial_state): []}
+        backward_visited = {tuple(goal_state): []}
 
-        while queue_start and queue_goal:
-            # Expand from the start
-            current_state_start, path_start = queue_start.popleft()
-            empty_start = self.get_empty_tile_coordinates(current_state_start)
+        while forward_queue and backward_queue:
+            # Forward BFS step
+            if forward_queue:
+                f_state, f_path = forward_queue.popleft()
+                f_empty_y, f_empty_x = self.get_empty_tile_coordinates(f_state)
 
-            # Check for a solution
-            if tuple(current_state_start) in visited_goal:
-                # Merge paths
-                path_goal = visited_goal[tuple(current_state_start)]
-                return (
-                    path_start + path_goal[::-1]
-                )  # Complete path from forward and backward
+                if tuple(f_state) in backward_visited:
+                    return f_path[:-1] + backward_visited[tuple(f_state)][::-1]
 
-            # Explore possible moves
-            for move in self.can_move_to(empty_start):
-                new_state_start = current_state_start[:]
-                new_state_start = self.move_to(new_state_start, move)
-                new_empty_tile_start = self.get_empty_tile_coordinates(new_state_start)
-                new_state_tuple_start = tuple(new_state_start)
+                for move in self.can_move_to((f_empty_y, f_empty_x)):
+                    new_state = f_state[:]
+                    self.move_to(new_state, move)
+                    new_empty_tile = self.get_empty_tile_coordinates(new_state)
+                    new_state_tuple = tuple(new_state)
 
-                if new_state_tuple_start not in visited_start:
-                    visited_start[new_state_tuple_start] = path_start + [
-                        new_empty_tile_start
-                    ]
-                    queue_start.append(
-                        (new_state_start, visited_start[new_state_tuple_start])
-                    )
+                    if new_state_tuple not in forward_visited:
+                        new_path = f_path + [new_empty_tile]
+                        forward_visited[new_state_tuple] = new_path
+                        forward_queue.append((new_state, new_path))
 
-            # Expand from the goal
-            current_state_goal, path_goal = queue_goal.popleft()
-            empty_goal = self.get_empty_tile_coordinates(current_state_goal)
+            # Backward BFS step
+            if backward_queue:
+                b_state, b_path = backward_queue.popleft()
+                b_empty_y, b_empty_x = self.get_empty_tile_coordinates(b_state)
 
-            # Check for a solution
-            if tuple(current_state_goal) in visited_start:
-                # Merge paths
-                path_start = visited_start[tuple(current_state_goal)]
-                return (
-                    path_goal[::-1] + path_start
-                )  # Complete path from backward and forward
+                if tuple(b_state) in forward_visited:
+                    return forward_visited[tuple(b_state)][:-1] + b_path[::-1]
 
-            # Explore possible moves backwards
-            for move in self.can_move_to(empty_goal):
-                new_state_goal = current_state_goal[:]
-                self.move_to(new_state_goal, move)
-                new_empty_tile_goal = self.get_empty_tile_coordinates(new_state_goal)
-                new_state_tuple_goal = tuple(new_state_goal)
+                for move in self.can_move_to((b_empty_y, b_empty_x)):
+                    new_state = b_state[:]
+                    self.move_to(new_state, move)
+                    new_empty_tile = self.get_empty_tile_coordinates(new_state)
+                    new_state_tuple = tuple(new_state)
 
-                if new_state_tuple_goal not in visited_goal:
-                    visited_goal[new_state_tuple_goal] = path_goal + [
-                        new_empty_tile_goal
-                    ]
-                    queue_goal.append(
-                        (new_state_goal, visited_goal[new_state_tuple_goal])
-                    )
+                    if new_state_tuple not in backward_visited:
+                        new_path = b_path + [new_empty_tile]
+                        backward_visited[new_state_tuple] = new_path
+                        backward_queue.append((new_state, new_path))
+
+        return None  # If no solution is found
+
+    def heuristic(self, state, goal_state):
+        distance = 0
+        for i, tile in enumerate(state):
+            if tile is None:
+                continue  # Skip the empty tile
+            if tile in goal_state:
+                goal_index = goal_state.index(tile)
+                goal_y, goal_x = divmod(goal_index, self.size)
+                current_y, current_x = divmod(i, self.size)
+                distance += abs(goal_y - current_y) + abs(goal_x - current_x)
+            else:
+                distance += self.size  # This could be adjusted based on requirements
+        return distance
+
+    def a_star(self):
+        # Replace None with 0 to prevent:
+        # TypeError: '<' not supported between instances of 'NoneType' and 'int'
+        # While trying to compare list items for pushing to the heapq or popping from it
+        initial_state = tuple(
+            tile if tile is not None else 0 for row in self.tiles for tile in row
+        )
+
+        # Use 0 instead of None for the reason above
+        # goal_state = tuple(range(1, self.size**2)) + (None,)
+        goal_state = tuple(range(1, self.size**2)) + (0,)
+
+        start_node = (initial_state, [self.empty_tile], 0)
+        frontier = [(self.heuristic(initial_state, goal_state), start_node)]
+        reached = {initial_state: start_node}
+
+        while frontier:
+            _, node = heapq.heappop(frontier)
+            current_state, path, cost = node
+
+            if current_state == goal_state:
+                return path
+
+            empty_y, empty_x = self.get_empty_tile_coordinates(current_state)
+
+            for move in self.can_move_to((empty_y, empty_x)):
+                new_state = list(current_state)
+                self.move_to(new_state, move, empty=0)
+                new_state = tuple(new_state)
+                new_empty_tile = self.get_empty_tile_coordinates(new_state)
+                new_path = path + [new_empty_tile]
+                new_cost = cost + 1
+
+                if new_state not in reached or new_cost < reached[new_state][2]:
+                    reached[new_state] = (new_state, new_path, new_cost)
+                    f = new_cost + self.heuristic(new_state, goal_state)
+                    heapq.heappush(frontier, (f, (new_state, new_path, new_cost)))
 
         return None  # If no solution is found
 
     def get_empty_tile_coordinates(self, state: list):
-        empty_i = state.index(None)
+        empty_i = state.index(0)
         y = empty_i // self.size
         x = empty_i % self.size
         return (y, x)
 
-    def bullshit_check_win(self, state):
+    def is_solved(self, state):
         expected = list(range(1, self.size**2)) + [None]
         return state == expected
 
@@ -166,9 +201,9 @@ class PuzzleAlgorithms:
 
         return moves
 
-    def move_to(self, state: list, directions: str):
+    def move_to(self, state: list, directions: str, empty=None):
         for direction in directions:
-            index = state.index(None)
+            index = state.index(empty)
             new_index = index
 
             if direction == "l":
@@ -201,7 +236,6 @@ class SlidingPuzzle(QWidget):
 
         self.algorithm_selector = QComboBox()
         self.algorithm_selector.addItems(ALGORITHMS)
-        # Add additional algorithms here when implemented
         self.layout.addWidget(self.algorithm_selector)
 
         self.solve_button = QPushButton("Solve Automatically")
@@ -292,47 +326,43 @@ class SlidingPuzzle(QWidget):
     def solve_automatically(self):
         selected_algorithm = self.algorithm_selector.currentText()
         alg = PuzzleAlgorithms(self.size, self.tiles, self.empty_tile)
+        path = None
 
         if selected_algorithm == "BFS":
             path = alg.bfs()
-            if path is not None:
-                self.animate_solution(path)
-            else:
-                mbox = CustomMessageBox(
-                    "No Solution", "Unable to solve the puzzle automatically."
-                )
-                mbox.exec_()
         elif selected_algorithm == "Bidirectional":
             path = alg.bidirectional()
-            if path is not None:
-                self.animate_solution(path)
+        elif selected_algorithm == "A*":
+            path = alg.a_star()
+
+        if path is not None:
+            self.animate_solution(path)
+        else:
+            if selected_algorithm == "Select an algorithm":
+                mbox = CustomMessageBox(
+                    "Select Algorithm", "Please select a valid algorithm."
+                )
+                mbox.exec_()
             else:
                 mbox = CustomMessageBox(
                     "No Solution", "Unable to solve the puzzle automatically."
                 )
                 mbox.exec_()
-        else:
-            mbox = CustomMessageBox(
-                "Select Algorithm", "Please select a valid algorithm."
-            )
-            mbox.exec_()
 
     def animate_solution(self, path):
-        # Use QTimer to animate the solution
         self.move_sequence = path
         self.move_index = 0
 
-        # Create a timer to handle the moves
         self.timer = QTimer()
         self.timer.timeout.connect(self.perform_move)
-        self.timer.start(500)  # Move every half second (500 ms)
+        self.timer.start(500)
 
     def perform_move(self):
         if self.move_index < len(self.move_sequence):
             self.move_tile(*self.move_sequence[self.move_index])
             self.move_index += 1
         else:
-            self.timer.stop()  # Stop the timer when all moves are done
+            self.timer.stop()
 
 
 if __name__ == "__main__":
