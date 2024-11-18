@@ -1,6 +1,5 @@
 import random
 import sys
-
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
@@ -15,20 +14,54 @@ from PyQt5.QtWidgets import (
 )
 
 from algorithms import PuzzleAlgorithms
+from comparison_mode import SlidingPuzzleComparison
 
 # List of available algorithms
 ALGORITHMS = ["Select an algorithm", "BFS", "Bidirectional", "A*"]
 
-
-class SlidingPuzzle(QWidget):
-    """Main application class for the Sliding Puzzle game."""
+class ModeSelection(QWidget):
+    """Mode selection interface."""
 
     def __init__(self):
         super().__init__()
+        self.puzzle_size = 3
 
         self.setWindowTitle("Sliding Puzzle")
 
-        self.size = 3
+        # Main layout
+        self.layout = QVBoxLayout()
+
+        # Button for normal mode
+        self.normal_mode_button = QPushButton("Normal Mode")
+        self.normal_mode_button.clicked.connect(self.open_normal_mode)
+
+        # Button for comparison mode
+        self.comparison_mode_button = QPushButton("Comparison Mode")
+        self.comparison_mode_button.clicked.connect(self.open_comparison_mode)
+
+        # Add buttons to layout
+        self.layout.addWidget(self.normal_mode_button)
+        self.layout.addWidget(self.comparison_mode_button)
+
+        self.setLayout(self.layout)
+
+    def open_normal_mode(self):
+        self.normal_mode = SlidingPuzzleNormal(self.puzzle_size)
+        self.normal_mode.show()
+
+    def open_comparison_mode(self):
+        self.comparison_mode = SlidingPuzzleComparison(self.puzzle_size)
+        self.comparison_mode.show()
+
+class SlidingPuzzleNormal(QWidget):
+    """Main application class for the Sliding Puzzle game in normal mode."""
+
+    def __init__(self, size: int):
+        super().__init__()
+
+        self.setWindowTitle("Sliding Puzzle - Normal Mode")
+
+        self.size = size
         self.tiles = []
         self.empty_tile = (self.size - 1, self.size - 1)
 
@@ -41,22 +74,18 @@ class SlidingPuzzle(QWidget):
         self.algorithm_selector.addItems(ALGORITHMS)
         self.layout.addWidget(self.algorithm_selector)
 
-        # Create a QSpinBox for selecting the solving speed
-        # Lower value means faster (This is actually the delay between each move)
         self.speed_selector = QSpinBox()
-        self.speed_selector.setMinimum(100)  # Maximum speed in ms
-        self.speed_selector.setMaximum(1000)  # Minimum speed in ms
-        self.speed_selector.setValue(500)  # Default value
+        self.speed_selector.setMinimum(100)
+        self.speed_selector.setMaximum(1000)
+        self.speed_selector.setValue(500)
         self.layout.addWidget(self.speed_selector)
 
         self.solve_button = QPushButton("Solve Automatically")
         self.solve_button.clicked.connect(self.solve_automatically)
-        # self.solve_button.setFont(QFont("Arial", 15))
         self.layout.addWidget(self.solve_button)
 
         self.shuffle_button = QPushButton("Shuffle")
         self.shuffle_button.clicked.connect(self.shuffle_tiles_and_redraw)
-        # self.shuffle_button.setFont(QFont("Arial", 15))
         self.layout.addWidget(self.shuffle_button)
 
         self.setLayout(self.layout)
@@ -73,17 +102,15 @@ class SlidingPuzzle(QWidget):
         ]
 
     def shuffle_tiles(self):
-        """Shuffle the tiles by randomly moving them.
-        This will prevent getting an unsolvable state.
-        """
-        for _ in range(1000):
+        """Shuffle the tiles by randomly moving them."""
+        for _ in range(10000):
             self.move_random_tile()
 
     def shuffle_tiles_and_redraw(self):
         """Shuffle the tiles and redraw the puzzle."""
         self.shuffle_tiles()
         self.draw_tiles()
-
+        
     def move_random_tile(self):
         """Move a random tile into the empty space. Or move the empty space randomly. Think of it as you'd like:)"""
         y, x = self.empty_tile
@@ -112,8 +139,7 @@ class SlidingPuzzle(QWidget):
             for j in range(self.size):
                 tile = self.tiles[i][j]
                 button = QPushButton(str(tile) if tile is not None else "")
-                button.setFixedSize(150, 150)
-                # button.setFont(QFont("Arial", 15))
+                button.setFixedSize(100, 100)
                 if tile is not None:
                     button.clicked.connect(
                         lambda checked, x=i, y=j: self.move_tile(x, y)
@@ -154,16 +180,16 @@ class SlidingPuzzle(QWidget):
         path = None
 
         if selected_algorithm == "BFS":
-            path = alg.bfs()
+            path, _, __ = alg.bfs()
         elif selected_algorithm == "Bidirectional":
-            path = alg.bidirectional()
+            path, _, __ = alg.bidirectional()
         elif selected_algorithm == "A*":
-            path = alg.a_star()
+            path, _, __ = alg.a_star()
 
         # Get the speed from the spin box
         solving_speed = self.speed_selector.value()
 
-        if path is not None:
+        if path:
             self.animate_solution(path, solving_speed)
         else:
             if selected_algorithm == "Select an algorithm":
@@ -202,8 +228,8 @@ class SlidingPuzzle(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     font = QFont()
-    font.setPointSize(20)
+    font.setPointSize(15)
     app.setFont(font)
-    puzzle = SlidingPuzzle()
-    puzzle.show()
+    mode_selection = ModeSelection()
+    mode_selection.show()
     sys.exit(app.exec_())

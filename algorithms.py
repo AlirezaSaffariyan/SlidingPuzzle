@@ -24,13 +24,17 @@ class PuzzleAlgorithms:
         queue = deque([(initial_state, [])])
         visited = set()
         visited.add(tuple(initial_state))
+        
+        nodes_expanded = 0  # Counter for expanded nodes
+        nodes_stored = 1  # Start with the initial state counted as stored
 
         while queue:
             current_state, path = queue.popleft()
+            nodes_expanded += 1  # Every time a node is dequeued, it's expanded
             empty_y, empty_x = self.get_empty_tile_coordinates(current_state)
 
             if self.is_solved(current_state):
-                return path
+                return path, nodes_expanded, nodes_stored
 
             for move in self.can_move_to((empty_y, empty_x)):
                 new_state = current_state[:]
@@ -40,10 +44,11 @@ class PuzzleAlgorithms:
 
                 if new_state_tuple not in visited:
                     visited.add(new_state_tuple)
+                    nodes_stored += 1  # Count this new state as stored
                     new_path = path + [new_empty_tile]
                     queue.append((new_state, new_path))
 
-        return None  # If no solution is found
+        return None, nodes_expanded, nodes_stored  # If no solution is found
 
     def bidirectional(self):
         """Performs a bidirectional search to solve the puzzle."""
@@ -56,19 +61,23 @@ class PuzzleAlgorithms:
 
         # Initialize queues for forward and backward search
         forward_queue = deque([(initial_state, [start_empty])])
-        backward_queue = deque([(goal_state, [(2, 2)])])
+        backward_queue = deque([(goal_state, [(self.size - 1, self.size - 1)])])
 
         forward_visited = {tuple(initial_state): []}
         backward_visited = {tuple(goal_state): []}
+        
+        nodes_expanded = 0  # Counter for the number of expanded nodes
+        nodes_stored = 2  # Start with two initial states counted as stored
 
         while forward_queue and backward_queue:
             # Forward BFS step
             if forward_queue:
                 f_state, f_path = forward_queue.popleft()
+                nodes_expanded += 1
                 f_empty_y, f_empty_x = self.get_empty_tile_coordinates(f_state)
 
                 if tuple(f_state) in backward_visited:
-                    return f_path[:-1] + backward_visited[tuple(f_state)][::-1]
+                    return f_path[:-1] + backward_visited[tuple(f_state)][::-1], nodes_expanded, nodes_stored
 
                 for move in self.can_move_to((f_empty_y, f_empty_x)):
                     new_state = f_state[:]
@@ -79,15 +88,17 @@ class PuzzleAlgorithms:
                     if new_state_tuple not in forward_visited:
                         new_path = f_path + [new_empty_tile]
                         forward_visited[new_state_tuple] = new_path
+                        nodes_stored += 1  # Count this state as stored
                         forward_queue.append((new_state, new_path))
 
             # Backward BFS step
             if backward_queue:
                 b_state, b_path = backward_queue.popleft()
+                nodes_expanded += 1
                 b_empty_y, b_empty_x = self.get_empty_tile_coordinates(b_state)
 
                 if tuple(b_state) in forward_visited:
-                    return forward_visited[tuple(b_state)][:-1] + b_path[::-1]
+                    return forward_visited[tuple(b_state)][:-1] + b_path[::-1], nodes_expanded, nodes_stored
 
                 for move in self.can_move_to((b_empty_y, b_empty_x)):
                     new_state = b_state[:]
@@ -98,9 +109,10 @@ class PuzzleAlgorithms:
                     if new_state_tuple not in backward_visited:
                         new_path = b_path + [new_empty_tile]
                         backward_visited[new_state_tuple] = new_path
+                        nodes_stored += 1  # Count this state as stored
                         backward_queue.append((new_state, new_path))
 
-        return None  # If no solution is found
+        return None, nodes_expanded, nodes_stored  # If no solution is found
 
     def heuristic(self, state, goal_state):
         """Calculate the heuristic distance from the current state to the goal state."""
@@ -132,15 +144,20 @@ class PuzzleAlgorithms:
         goal_state = tuple(range(1, self.size**2)) + (0,)
 
         start_node = (initial_state, [self.empty_tile], 0)
-        frontier = [(self.heuristic(initial_state, goal_state), start_node)]
+        # (f, new_cost, (new_state, new_path, new_cost))
+        frontier = [(self.heuristic(initial_state, goal_state), 0, start_node)]
         reached = {initial_state: start_node}
+        
+        nodes_expanded = 0  # Counter for expanded nodes
+        nodes_stored = 1  # Start with the initial state counted as stored
 
         while frontier:
-            _, node = heapq.heappop(frontier)
+            _, __, node = heapq.heappop(frontier)
             current_state, path, cost = node
+            nodes_expanded += 1  # Every time a node is dequeued, it's expanded
 
             if current_state == goal_state:
-                return path
+                return path, nodes_expanded, nodes_stored
 
             empty_y, empty_x = self.get_empty_tile_coordinates(current_state, empty=0)
 
@@ -154,10 +171,11 @@ class PuzzleAlgorithms:
 
                 if new_state not in reached or new_cost < reached[new_state][2]:
                     reached[new_state] = (new_state, new_path, new_cost)
+                    nodes_stored += 1  # Count this state as stored
                     f = new_cost + self.heuristic(new_state, goal_state)
-                    heapq.heappush(frontier, (f, (new_state, new_path, new_cost)))
+                    heapq.heappush(frontier, (f, new_cost, (new_state, new_path, new_cost)))
 
-        return None  # If no solution is found
+        return None, nodes_expanded, nodes_stored  # If no solution is found
 
     def get_empty_tile_coordinates(self, state: list, empty=None):
         """Get the coordinates of the empty tile (represented by 0 or None)."""
