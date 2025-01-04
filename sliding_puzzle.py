@@ -19,6 +19,7 @@ from comparison_mode import SlidingPuzzleComparison
 # List of available algorithms
 ALGORITHMS = ["Select an algorithm", "BFS", "Bidirectional", "A*"]
 
+
 class ModeSelection(QWidget):
     """Mode selection interface."""
 
@@ -52,6 +53,7 @@ class ModeSelection(QWidget):
     def open_comparison_mode(self):
         self.comparison_mode = SlidingPuzzleComparison(self.puzzle_size)
         self.comparison_mode.show()
+
 
 class SlidingPuzzleNormal(QWidget):
     """Main application class for the Sliding Puzzle game in normal mode."""
@@ -110,7 +112,7 @@ class SlidingPuzzleNormal(QWidget):
         """Shuffle the tiles and redraw the puzzle."""
         self.shuffle_tiles()
         self.draw_tiles()
-        
+
     def move_random_tile(self):
         """Move a random tile into the empty space. Or move the empty space randomly. Think of it as you'd like:)"""
         y, x = self.empty_tile
@@ -189,7 +191,7 @@ class SlidingPuzzleNormal(QWidget):
         # Get the speed from the spin box
         solving_speed = self.speed_selector.value()
 
-        if path:
+        if path is not None:
             self.animate_solution(path, solving_speed)
         else:
             if selected_algorithm == "Select an algorithm":
