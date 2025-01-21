@@ -24,7 +24,7 @@ class PuzzleAlgorithms:
         queue = deque([(initial_state, [])])
         visited = set()
         visited.add(tuple(initial_state))
-        
+
         nodes_expanded = 0  # Counter for expanded nodes
         nodes_stored = 1  # Start with the initial state counted as stored
 
@@ -65,7 +65,7 @@ class PuzzleAlgorithms:
 
         forward_visited = {tuple(initial_state): []}
         backward_visited = {tuple(goal_state): []}
-        
+
         nodes_expanded = 0  # Counter for the number of expanded nodes
         nodes_stored = 2  # Start with two initial states counted as stored
 
@@ -77,7 +77,11 @@ class PuzzleAlgorithms:
                 f_empty_y, f_empty_x = self.get_empty_tile_coordinates(f_state)
 
                 if tuple(f_state) in backward_visited:
-                    return f_path[:-1] + backward_visited[tuple(f_state)][::-1], nodes_expanded, nodes_stored
+                    return (
+                        f_path[:-1] + backward_visited[tuple(f_state)][::-1],
+                        nodes_expanded,
+                        nodes_stored,
+                    )
 
                 for move in self.can_move_to((f_empty_y, f_empty_x)):
                     new_state = f_state[:]
@@ -98,7 +102,11 @@ class PuzzleAlgorithms:
                 b_empty_y, b_empty_x = self.get_empty_tile_coordinates(b_state)
 
                 if tuple(b_state) in forward_visited:
-                    return forward_visited[tuple(b_state)][:-1] + b_path[::-1], nodes_expanded, nodes_stored
+                    return (
+                        forward_visited[tuple(b_state)][:-1] + b_path[::-1],
+                        nodes_expanded,
+                        nodes_stored,
+                    )
 
                 for move in self.can_move_to((b_empty_y, b_empty_x)):
                     new_state = b_state[:]
@@ -147,7 +155,7 @@ class PuzzleAlgorithms:
         # (f, new_cost, (new_state, new_path, new_cost))
         frontier = [(self.heuristic(initial_state, goal_state), 0, start_node)]
         reached = {initial_state: start_node}
-        
+
         nodes_expanded = 0  # Counter for expanded nodes
         nodes_stored = 1  # Start with the initial state counted as stored
 
@@ -173,7 +181,9 @@ class PuzzleAlgorithms:
                     reached[new_state] = (new_state, new_path, new_cost)
                     nodes_stored += 1  # Count this state as stored
                     f = new_cost + self.heuristic(new_state, goal_state)
-                    heapq.heappush(frontier, (f, new_cost, (new_state, new_path, new_cost)))
+                    heapq.heappush(
+                        frontier, (f, new_cost, (new_state, new_path, new_cost))
+                    )
 
         return None, nodes_expanded, nodes_stored  # If no solution is found
 
